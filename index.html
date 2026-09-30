@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบยืม-คืนอุปกรณ์กีฬาโรงเรียน</title>
+  <link rel="icon" type="image/png" href="image/logo.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- HTML5 QR Code Scanner Library for Self-Service Return -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- Google Sheets API Client & Storage Modules -->
+  <script src="js/sheets-api.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</head>
+<body>
+
+  <!-- ========================================================================
+       Top Navigation Bar (Header)
+       ======================================================================== -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="#borrow" class="brand">
+        <div class="brand-logo-wrap">
+          <img src="image/logo.png" alt="ตราโรงเรียน" class="school-logo">
+        </div>
+        <div class="brand-info">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <h1 id="brand-title">ระบบยืม-คืนอุปกรณ์กีฬา</h1>
+            <span id="db-status-badge" class="db-status-pill local" title="สถานะฐานข้อมูล">🟡 โหมดเครื่อง</span>
+          </div>
+          <p id="brand-subtitle">โรงเรียนของเรา • ใช้งานง่าย ข้อมูลอัปเดตทันที</p>
+        </div>
+      </a>
+
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <nav class="main-nav">
+          <a href="#borrow" class="nav-link active">
+            <span>🏀</span> หน้ายืมอุปกรณ์
+          </a>
+          <a href="#return" class="nav-link">
+            <span>🔄</span> คืนอุปกรณ์
+          </a>
+          <a href="#dashboard" class="nav-link btn-teacher-nav" id="nav-teacher-link">
+            <span>👨‍🏫</span> สำหรับครู
+          </a>
+        </nav>
+
+        <!-- แถบโปรไฟล์ผู้เข้าสู่ระบบ -->
+        <div id="header-user-wrap">
+          <!-- ไดนามิกสร้างผ่าน app.js -->
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       Main Content Container
+       ======================================================================== -->
+  <main class="main-container">
+
+    <!-- ----------------------------------------------------------------------
+         VIEW 1: หน้ายืมอุปกรณ์ (Borrow Page - Default)
+         ---------------------------------------------------------------------- -->
+    <section id="borrow" class="view-page active">
+      <div class="hero-banner">
+        <div class="hero-content">
+          <h2 class="hero-title">ยินดีต้อนรับสู่ห้องอุปกรณ์กีฬา 🏀</h2>
+          <p class="hero-subtitle" id="hero-subtitle">
+            นักเรียนสามารถเลือกยืมลูกฟุตบอล บาสเกตบอล แบดมินตัน และอุปกรณ์อื่นๆ ได้สะดวกรวดเร็ว ยืมเสร็จแล้วอย่าลืมนำมาส่งคืนตามกำหนดนะครับ
+          </p>
+        </div>
+        <div class="hero-logo-box">
+          <img src="image/logo.png" alt="ตราโรงเรียน">
+        </div>
+      </div>
+
+      <div class="page-header-row">
+        <div class="section-title">
+          <span>📦</span> รายการอุปกรณ์กีฬาที่พร้อมให้ยืม
+        </div>
+
+        <div class="search-box-wrap" style="max-width: 320px;">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="search-equipment-input" 
+            class="form-control" 
+            placeholder="ค้นหาชื่ออุปกรณ์กีฬา..."
+          >
+        </div>
+      </div>
+
+      <!-- Grid แสดงการ์ดอุปกรณ์กีฬา -->
+      <div id="equipment-grid" class="equipment-grid">
+        <!-- ไดนามิกสร้างผ่าน app.js -->
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------------------
+         VIEW 2: หน้าคืนอุปกรณ์ (Return Page)
+         ---------------------------------------------------------------------- -->
+    <section id="return" class="view-page">
+      <div class="dashboard-card-section" style="margin-bottom: 1.5rem;">
+        <div class="section-header-compact">
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--primary-dark);">
+            <span>🔄</span> คืนอุปกรณ์กีฬา (Self-Service Return Station)
+          </h2>
+          <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.25rem;">
+            นำอุปกรณ์ไปวางคืนที่ตู้/ชั้นวางในห้องพละ แล้วกดคืนด้วยการสแกน QR Code ประจำจุดคืน หรือกรอกรหัสประจำตู้
+          </p>
+        </div>
+
+        <div class="search-box-wrap" style="max-width: 480px; margin-top: 1rem;">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="return-search-input" 
+            class="form-control" 
+            placeholder="พิมพ์รหัสนักเรียน หรือชั้นเรียน (เช่น 10234 หรือ ม.3/1)..."
+          >
+        </div>
+      </div>
+
+      <!-- รายการอุปกรณ์ที่กำลังยืมอยู่และรอการส่งคืน -->
+      <div id="return-search-results">
+        <!-- ไดนามิกสร้างผ่าน app.js -->
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------------------
+         VIEW 3: หน้า Login & Register (นักเรียน & คุณครู)
+         ---------------------------------------------------------------------- -->
+    <section id="login" class="view-page">
+      <div class="login-box-wrapper">
+        <div class="login-card">
+          <div class="login-header">
+            <div class="login-logo-bubble">
+              <img src="image/logo.png" alt="ตราโรงเรียน">
+            </div>
+            <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--primary-dark);">
+              เข้าสู่ระบบ / สมัครสมาชิก
+            </h2>
+            <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.25rem;">
+              ระบบยืม-คืนอุปกรณ์กีฬาโรงเรียน
+            </p>
+          </div>
+
+          <!-- แท็บสลับบทบาทการเข้าสู่ระบบ -->
+          <div class="role-tabs">
+            <button type="button" class="role-tab-btn active" id="tab-btn-student">
+              👨‍🎓 สำหรับนักเรียน
+            </button>
+            <button type="button" class="role-tab-btn" id="tab-btn-teacher">
+              👨‍🏫 สำหรับคุณครู
+            </button>
+          </div>
+
+          <!-- ==================== ส่วนของนักเรียน (Student Auth) ==================== -->
+          <div id="student-auth-section">
+            <!-- สลับระหว่าง เข้าสู่ระบบ / สมัครสมาชิก -->
+            <div class="sub-auth-switch">
+              <button type="button" class="sub-auth-btn active" id="btn-sub-login">
+                🔑 เข้าสู่ระบบ
+              </button>
+              <button type="button" class="sub-auth-btn" id="btn-sub-register">
+                📝 สมัครสมาชิกใหม่
+              </button>
+            </div>
+
+            <!-- 1. แบบฟอร์มล็อกอินนักเรียน (Student Login) -->
+            <form id="student-login-form">
+              <div class="form-group">
+                <label class="form-label" for="student-login-id">
+                  รหัสนักเรียน <span class="required">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  id="student-login-id" 
+                  class="form-control" 
+                  placeholder="เช่น 10234 หรือ 5 หลัก"
+                  required
+                >
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="student-login-password">
+                  รหัสผ่าน (Password) <span class="required">*</span>
+                </label>
+                <div style="position: relative;">
+                  <input 
+                    type="password" 
+                    id="student-login-password" 
+                    class="form-control" 
+                    placeholder="กรอกรหัสผ่านของคุณ"
+                    style="padding-right: 2.5rem;"
+                    required
+                  >
+                  <button type="button" id="btn-toggle-student-password" class="btn-toggle-eye" title="แสดง/ซ่อนรหัสผ่าน">
+                    👁️
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 0.75rem;">
+                🎒 เข้าใช้งานในฐานะนักเรียน
+              </button>
+            </form>
+
+            <!-- 2. แบบฟอร์มสมัครสมาชิกนักเรียน (Student Register) -->
+            <form id="student-register-form" style="display: none;">
+              <div class="form-group">
+                <label class="form-label" for="register-student-id">
+                  รหัสนักเรียน <span class="required">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  id="register-student-id" 
+                  class="form-control" 
+                  placeholder="เช่น 10234 (ใช้เป็น Username)"
+                  required
+                >
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="register-student-class">
+                  ชั้นเรียน / ห้อง <span class="required">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  id="register-student-class" 
+                  class="form-control" 
+                  placeholder="เช่น ม.3/1 หรือ ม.4/5"
+                  required
+                >
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="register-password">
+                  ตั้งรหัสผ่าน (Password) <span class="required">*</span>
+                </label>
+                <input 
+                  type="password" 
+                  id="register-password" 
+                  class="form-control" 
+                  placeholder="ตั้งรหัสผ่านกันเพื่อนแอบใช้ (เช่น 4 หลัก)"
+                  required
+                >
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="register-confirm-password">
+                  ยืนยันรหัสผ่านอีกครั้ง <span class="required">*</span>
+                </label>
+                <input 
+                  type="password" 
+                  id="register-confirm-password" 
+                  class="form-control" 
+                  placeholder="พิมพ์รหัสผ่านซ้ำอีกครั้ง"
+                  required
+                >
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 0.75rem;">
+                ✨ ยืนยันการสมัครสมาชิก
+              </button>
+            </form>
+          </div>
+
+          <!-- ==================== ส่วนของคุณครู (Teacher Form) ==================== -->
+          <form id="login-form" style="display: none;">
+            <div class="form-group">
+              <label class="form-label" for="login-username">ชื่อผู้ใช้ (Username)</label>
+              <input 
+                type="text" 
+                id="login-username" 
+                class="form-control" 
+                placeholder="ระบุชื่อผู้ใช้ เช่น admin"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="login-password">รหัสผ่าน (Password)</label>
+              <div style="position: relative;">
+                <input 
+                  type="password" 
+                  id="login-password" 
+                  class="form-control" 
+                  placeholder="ระบุรหัสผ่าน"
+                  style="padding-right: 2.5rem;"
+                  required
+                >
+                <button type="button" id="btn-toggle-password" class="btn-toggle-eye" title="แสดง/ซ่อนรหัสผ่าน">
+                  👁️
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 0.75rem;">
+              🚀 เข้าสู่ระบบสำหรับครู
+            </button>
+
+            <details style="margin-top: 1.25rem; font-size: 0.8rem; color: var(--text-muted); background: var(--accent-light); padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid #bfdbfe;">
+              <summary style="cursor: pointer; font-weight: 600; color: var(--accent-text);">💡 ข้อมูลสำหรับผู้ดูแลระบบครั้งแรก</summary>
+              <p style="margin-top: 0.4rem; line-height: 1.4;">
+                ชื่อผู้ใช้เริ่มต้น: <code>admin</code><br>
+                รหัสผ่านเริ่มต้น: <code>1234</code><br>
+                *(สามารถเปลี่ยนได้ในเมนู "⚙️ ตั้งค่าระบบ" หลังจากเข้าสู่ระบบ)*
+              </p>
+            </details>
+          </form>
+
+          <div style="text-align: center; margin-top: 1.25rem;">
+            <a href="#borrow" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: none;">
+              ← กลับสู่หน้ายืมอุปกรณ์
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------------------
+         VIEW 4: หน้า Dashboard สำหรับครู (Teacher / Admin Dashboard)
+         ---------------------------------------------------------------------- -->
+    <section id="dashboard" class="view-page">
+      <div class="dashboard-topbar">
+        <div class="teacher-info">
+          <div class="teacher-avatar" style="overflow: hidden; padding: 3px; background: white; border: 2px solid var(--primary-border);">
+            <img src="image/logo.png" alt="ตราโรงเรียน" style="width: 100%; height: 100%; object-fit: contain;">
+          </div>
+          <div>
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--primary-dark);">
+              แดชบอร์ดจัดการระบบกีฬา
+            </h2>
+            <p class="text-muted" style="font-size: 0.85rem;">
+              สวัสดี, <span id="dashboard-teacher-name" style="font-weight: 600; color: var(--text-main);">คุณครู</span>
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+          <button type="button" id="btn-open-station-poster" class="btn btn-sm btn-primary" title="เปิดและพิมพ์ป้าย QR Code สำหรับติดที่ตู้เก็บอุปกรณ์">
+            🖨️ ป้าย QR จุดคืน
+          </button>
+          <button type="button" id="btn-export-csv" class="btn btn-sm btn-outline" title="ส่งออกประวัติเป็นไฟล์ Excel / CSV">
+            📥 ส่งออก CSV
+          </button>
+          <button type="button" id="btn-print-report" class="btn btn-sm btn-outline" title="พิมพ์รายงานสรุป">
+            🖨️ พิมพ์รายงาน
+          </button>
+          <button type="button" id="btn-open-backup" class="btn btn-sm btn-outline" title="สำรองและกู้คืนฐานข้อมูล">
+            💾 สำรอง/กู้คืน
+          </button>
+          <button type="button" id="btn-open-settings" class="btn btn-sm btn-outline" title="ตั้งค่าระบบและเปลี่ยนรหัสผ่าน">
+            ⚙️ ตั้งค่าระบบ
+          </button>
+          <button type="button" id="btn-logout" class="btn btn-sm btn-danger" title="ออกจากระบบ">
+            🚪 ออกจากระบบ
+          </button>
+        </div>
+      </div>
+
+      <!-- 1. การ์ดสรุปภาพรวม (Metrics) -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-icon-box bg-blue">📦</div>
+          <div class="metric-info">
+            <h4 id="metric-total-items">0</h4>
+            <p>อุปกรณ์กีฬาทั้งหมด (ชิ้น)</p>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon-box bg-yellow">⏳</div>
+          <div class="metric-info">
+            <h4 id="metric-currently-borrowed">0</h4>
+            <p>กำลังถูกยืมอยู่ (ชิ้น)</p>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon-box bg-red">⚠️</div>
+          <div class="metric-info">
+            <h4 id="metric-overdue">0</h4>
+            <p>เกินกำหนดส่งคืน (รายการ)</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. ตารางประวัติการยืม-คืน -->
+      <div class="dashboard-card-section" style="margin-bottom: 2rem;">
+        <div class="section-header-compact">
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--primary-dark);">
+            📋 ประวัติและรายการยืม-คืนอุปกรณ์ทั้งหมด
+          </h3>
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <div class="search-box-wrap" style="width: 220px;">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="dashboard-table-search" class="form-control" placeholder="ค้นหาประวัติ...">
+            </div>
+            <select id="dashboard-filter-status" class="form-control" style="width: auto;">
+              <option value="all">สถานะทั้งหมด</option>
+              <option value="borrowed">⏳ กำลังยืม</option>
+              <option value="overdue">⚠️ เกินกำหนดคืน</option>
+              <option value="returned">✓ คืนแล้ว</option>
+            </select>
+            <button type="button" id="btn-clear-returned" class="btn btn-sm btn-outline" title="ล้างประวัติที่คืนแล้วออกจากตาราง">
+              🧹 ล้างที่คืนแล้ว
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th>รหัสนักเรียน</th>
+                <th>ชั้น/ห้อง</th>
+                <th>อุปกรณ์</th>
+                <th>จำนวน</th>
+                <th>วันที่ยืม</th>
+                <th>กำหนดคืน</th>
+                <th>สถานะ</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-table-body">
+              <!-- ไดนามิกสร้างผ่าน app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3. การจัดการชนิดอุปกรณ์กีฬา (Equipment CRUD) -->
+      <div class="dashboard-card-section">
+        <div class="section-header-compact">
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--primary-dark);">
+            ⚙️ จัดการชนิดและจำนวนอุปกรณ์กีฬา (คลังพละ)
+          </h3>
+          <button type="button" id="btn-add-equipment" class="btn btn-sm btn-primary">
+            ➕ เพิ่มอุปกรณ์ใหม่
+          </button>
+        </div>
+
+        <div class="admin-equipment-grid" id="admin-equipment-container">
+          <!-- ไดนามิกสร้างผ่าน app.js -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================
+       MODAL 1: ยืมอุปกรณ์กีฬา (Borrow Modal)
+       ======================================================================== -->
+  <div id="borrow-modal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>⚡ บันทึกการยืมอุปกรณ์กีฬา</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="borrow">&times;</button>
+      </div>
+
+      <form id="borrow-form">
+        <div class="modal-body">
+          <div class="modal-equip-summary">
+            <div class="modal-equip-icon" id="modal-equip-icon">⚽</div>
+            <div>
+              <h4 id="modal-equip-name">ลูกฟุตบอล</h4>
+              <p class="text-muted" style="font-size: 0.85rem;">คงเหลือพร้อมให้ยืม: <strong id="modal-equip-avail" style="color: var(--status-available);">0 ชิ้น</strong></p>
+            </div>
+          </div>
+
+          <input type="hidden" id="modal-equip-id">
+
+          <div class="form-group">
+            <label class="form-label" for="borrow-student-id">
+              รหัสนักเรียน <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="borrow-student-id" 
+              class="form-control" 
+              placeholder="เช่น 10234 หรือ 5 หลัก"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="borrow-class">
+              ชั้นเรียน / ห้อง <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="borrow-class" 
+              class="form-control" 
+              placeholder="เช่น ม.3/1 หรือ ม.4/5"
+              required
+            >
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="borrow-quantity">จำนวนที่ต้องการยืม <span class="required">*</span></label>
+              <input type="number" id="borrow-quantity" class="form-control" min="1" value="1" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="borrow-due-date">วันที่ต้องคืน <span class="required">*</span></label>
+              <input type="date" id="borrow-due-date" class="form-control" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal="borrow">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">ยืนยันการยืม ⚡</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 2: ยืนยันการคืนอุปกรณ์ ณ จุดคืน (Return Station Verification Modal)
+       ======================================================================== -->
+  <div id="return-verify-modal" class="modal-backdrop">
+    <div class="modal-container" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>📍 ยืนยันการคืน ณ จุดคืนอุปกรณ์</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="return-verify">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-equip-summary" style="margin-bottom: 1rem;">
+          <div class="modal-equip-icon" id="verify-loan-icon">⚽</div>
+          <div>
+            <h4 id="verify-loan-name">ลูกฟุตบอล</h4>
+            <p class="text-muted" style="font-size: 0.85rem;">
+              ผู้ยืม: <strong id="verify-loan-borrower">-</strong> | จำนวน: <strong id="verify-loan-qty">1</strong> ชิ้น
+            </p>
+          </div>
+        </div>
+
+        <!-- แท็บวิธีคืน: สแกน QR หรือ กรอกรหัสตู้ -->
+        <div class="sub-auth-switch" style="margin-bottom: 1rem;">
+          <button type="button" class="sub-auth-btn active" id="btn-verify-tab-scan">
+            📷 สแกน QR หน้าตู้
+          </button>
+          <button type="button" class="sub-auth-btn" id="btn-verify-tab-pin">
+            ⌨️ กรอกรหัสประจำตู้
+          </button>
+        </div>
+
+        <!-- ส่วนสแกนกล้อง (Camera Scanner) -->
+        <div id="verify-scan-view">
+          <div class="qr-scanner-viewport" id="qr-reader">
+            <div style="color: white; font-size: 0.85rem; text-align: center; padding: 1rem;">
+              กำลังเริ่มกล้องสำหรับสแกน QR Code...
+            </div>
+          </div>
+          <p class="text-muted" style="font-size: 0.8rem; text-align: center;">
+            💡 ส่องกล้องไปที่ป้าย QR Code ที่ติดอยู่ที่ตู้เก็บอุปกรณ์พละ
+          </p>
+        </div>
+
+        <!-- ส่วนกรอกรหัสตู้ (Station PIN Input) -->
+        <div id="verify-pin-view" style="display: none;">
+          <form id="verify-pin-form">
+            <div class="form-group">
+              <label class="form-label" for="manual-station-code">
+                รหัสจุดคืน (Station Code ที่ติดอยู่หน้าตู้) <span class="required">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="manual-station-code" 
+                class="form-control" 
+                placeholder="เช่น SP-8899"
+                style="font-size: 1.25rem; font-weight: 700; text-align: center; letter-spacing: 2px;"
+              >
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+              🔄 ยืนยันการคืนด้วยรหัสนี้
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close-modal="return-verify">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 3: ป้าย QR Code จุดคืนอุปกรณ์สำหรับพิมพ์ (Printable Station Poster)
+       ======================================================================== -->
+  <div id="station-poster-modal" class="modal-backdrop">
+    <div class="modal-container" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3>🖨️ ป้าย QR Code ประจำจุดคืนอุปกรณ์</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="station-poster">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="station-poster" id="printable-station-poster">
+          <div style="width: 60px; height: 60px; margin: 0 auto 0.5rem;">
+            <img src="image/logo.png" alt="ตราโรงเรียน" style="width: 100%; height: 100%; object-fit: contain;">
+          </div>
+          <h2 class="station-poster-title" id="poster-school-name">โรงเรียนของเรา</h2>
+          <p style="font-size: 0.95rem; font-weight: 600; color: var(--accent-text); margin-bottom: 0.5rem;">
+            📍 จุดส่งคืนอุปกรณ์กีฬา (Return Station)
+          </p>
+
+          <div class="station-poster-qr">
+            <img id="poster-qr-image" src="" alt="Station QR Code" style="width: 200px; height: 200px; display: block;">
+          </div>
+
+          <div style="font-size: 0.85rem; color: var(--text-muted);">รหัสประจำจุดคืน (Station PIN):</div>
+          <div class="station-code-display" id="poster-station-code">SP-8899</div>
+
+          <div style="margin-top: 1rem; font-size: 0.8rem; line-height: 1.4; color: var(--text-muted); text-align: left; background: var(--bg-main); padding: 0.75rem; border-radius: var(--radius-sm);">
+            <strong>📌 ขั้นตอนการคืนสำหรับนักเรียน:</strong><br>
+            1. นำอุปกรณ์กีฬามาวางคืนในชั้น/ตู้ให้เรียบร้อย<br>
+            2. เปิดเว็บแอป เข้าเมนู <strong>"คืนอุปกรณ์"</strong> แล้วกด <strong>"คืนอุปกรณ์"</strong><br>
+            3. สแกน QR Code นี้ หรือกรอกรหัสประจำตู้ด้านบนเพื่อยืนยัน
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close-modal="station-poster">ปิด</button>
+        <button type="button" class="btn btn-primary" id="btn-do-print-poster">🖨️ สั่งพิมพ์ป้ายนี้</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 4: เพิ่ม/แก้ไขชนิดอุปกรณ์ (Equipment Modal)
+       ======================================================================== -->
+  <div id="equipment-modal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="equipment-modal-title">➕ เพิ่มอุปกรณ์กีฬาใหม่</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="equipment">&times;</button>
+      </div>
+
+      <form id="equipment-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="equipment-name-input">ชื่ออุปกรณ์กีฬา <span class="required">*</span></label>
+            <input type="text" id="equipment-name-input" class="form-control" placeholder="เช่น ลูกฟุตบอล เบอร์ 5" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="equipment-total-input">จำนวนทั้งหมดในคลัง (ชิ้น) <span class="required">*</span></label>
+            <input type="number" id="equipment-total-input" class="form-control" min="1" value="10" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ไอคอนสัญลักษณ์ (เลือกหรือพิมพ์ Emoji เอง)</label>
+            <div class="emoji-picker-row">
+              <button type="button" class="emoji-btn selected" data-emoji="⚽">⚽</button>
+              <button type="button" class="emoji-btn" data-emoji="🏀">🏀</button>
+              <button type="button" class="emoji-btn" data-emoji="🏐">🏐</button>
+              <button type="button" class="emoji-btn" data-emoji="🏸">🏸</button>
+              <button type="button" class="emoji-btn" data-emoji="🏓">🏓</button>
+              <button type="button" class="emoji-btn" data-emoji="⚾">⚾</button>
+              <button type="button" class="emoji-btn" data-emoji="🎾">🎾</button>
+              <button type="button" class="emoji-btn" data-emoji="⚪">⚪</button>
+              <button type="button" class="emoji-btn" data-emoji="🧺">🧺</button>
+              <button type="button" class="emoji-btn" data-emoji="🥊">🥊</button>
+            </div>
+            <input type="text" id="equipment-icon-input" class="form-control" style="margin-top: 0.5rem;" value="⚽" placeholder="หรือพิมพ์ Emoji ตามต้องการ">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal="equipment">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">💾 บันทึกข้อมูล</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 5: ตั้งค่าระบบ & บัญชีผู้ดูแล (Settings Modal)
+       ======================================================================== -->
+  <div id="settings-modal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>⚙️ ตั้งค่าระบบและฐานข้อมูล</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="settings">&times;</button>
+      </div>
+
+      <form id="settings-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="setting-school-name">ชื่อโรงเรียน</label>
+            <input type="text" id="setting-school-name" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-school-sub">สโลแกน / หน่วยงานย่อย</label>
+            <input type="text" id="setting-school-sub" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-teacher-name">ชื่อคุณครูผู้ดูแลระบบ</label>
+            <input type="text" id="setting-teacher-name" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-station-code">🏷️ รหัสจุดคืนอุปกรณ์ (Station Code สำหรับป้าย QR)</label>
+            <input type="text" id="setting-station-code" class="form-control" placeholder="เช่น SP-8899" required>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.25rem 0;">
+
+          <h4 style="font-size: 0.95rem; color: var(--primary-dark); margin-bottom: 0.75rem;">🔐 เปลี่ยนรหัสผ่านคุณครู</h4>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-admin-username">ชื่อผู้ใช้ (Username)</label>
+            <input type="text" id="setting-admin-username" class="form-control" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="setting-old-password">รหัสผ่านปัจจุบัน <span class="required">*</span></label>
+              <input type="password" id="setting-old-password" class="form-control" placeholder="ยืนยันรหัสผ่านเดิม" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="setting-new-password">รหัสผ่านใหม่</label>
+              <input type="password" id="setting-new-password" class="form-control" placeholder="เว้นว่างหากไม่เปลี่ยน">
+            </div>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.25rem 0;">
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h4 style="font-size: 0.95rem; color: var(--primary-dark); margin: 0;">📊 ฐานข้อมูลออนไลน์ Google Sheets</h4>
+            <span id="settings-sheets-status-badge" class="badge" style="background: var(--bg-main); border: 1px solid var(--border-color); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px;">
+              ⚪ ยังไม่ได้เชื่อมต่อ
+            </span>
+          </div>
+
+          <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.75rem;">
+            ใส่ Web App URL ที่ได้จากการ Deploy Google Apps Script เพื่อบันทึกข้อมูล ยืม-คืน, สมาชิก, อุปกรณ์ ขึ้นชีตแบบเรียลไทม์
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-sheets-url">Google Apps Script Web App URL</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="url" id="setting-sheets-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+              <button type="button" id="btn-test-sheets-conn" class="btn btn-outline" style="white-space: nowrap; padding: 0 0.85rem; font-size: 0.85rem;">
+                🔍 ทดสอบ
+              </button>
+            </div>
+            <div id="sheets-conn-feedback" style="display: none; margin-top: 0.5rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);"></div>
+          </div>
+
+          <!-- ปุ่มจัดการซิงค์ข้อมูล Cloud (Push & Pull) -->
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+            <button type="button" id="btn-push-all-sheets" class="btn btn-sm btn-outline" style="flex: 1; font-size: 0.8rem;">
+              📤 นำข้อมูลในเครื่องขึ้นชีต (Push)
+            </button>
+            <button type="button" id="btn-pull-all-sheets" class="btn btn-sm btn-outline" style="flex: 1; font-size: 0.8rem;">
+              📥 ดึงข้อมูลจากชีตลงเครื่อง (Pull)
+            </button>
+          </div>
+
+          <!-- คำแนะนำวิธีตั้งค่า Google Sheets -->
+          <details style="margin-top: 0.75rem; font-size: 0.8rem; background: var(--bg-main); padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px dashed var(--border-color);">
+            <summary style="cursor: pointer; font-weight: 600; color: var(--primary-color);">📖 วิธีเอา Web App URL จาก Google Sheets</summary>
+            <ol style="margin: 0.5rem 0 0 1.25rem; padding: 0; line-height: 1.5; color: var(--text-muted);">
+              <li>เปิด Google Sheets ใหม่ > เมนู <strong>ส่วนขยาย (Extensions)</strong> > <strong>Apps Script</strong></li>
+              <li>วางโค้ดจากไฟล์ <code>google-apps-script/Code.gs</code> แล้วกดบันทึก</li>
+              <li>กดปุ่มสีน้ำเงิน <strong>ทำให้ใช้งานได้ (Deploy)</strong> > <strong>การทำให้ใช้งานได้ใหม่ (New deployment)</strong></li>
+              <li>เลือกประเภท <strong>เว็บแอป (Web app)</strong> > ตั้งค่า <strong>ผู้มีสิทธิ์เข้าถึง (Who has access): ทุกคน (Anyone)</strong> ***สำคัญมาก</li>
+              <li>กดปุ่ม <strong>ทำให้ใช้งานได้</strong> แล้วคัดลอก <strong>URL เว็บแอป (ที่ลงท้ายด้วย /exec)</strong> มาวางในช่องด้านบน</li>
+            </ol>
+          </details>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal="settings">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">💾 บันทึกการตั้งค่า</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 6: สำรองและกู้คืนข้อมูล (Backup & Restore Modal)
+       ======================================================================== -->
+  <div id="backup-modal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>💾 สำรองและกู้คืนฐานข้อมูล</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="backup">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="background: var(--accent-light); padding: 1rem; border-radius: var(--radius-md); border: 1px solid #bfdbfe; margin-bottom: 1.25rem;">
+          <h4 style="font-size: 1rem; color: var(--accent-text); margin-bottom: 0.35rem;">📦 สำรองข้อมูลระบบ (Export JSON)</h4>
+          <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+            ดาวน์โหลดไฟล์สำรองข้อมูลทั้งหมด (รายการอุปกรณ์, ประวัติการยืม-คืน, สมาชิกนักเรียน, การตั้งค่า) เพื่อเก็บไว้ป้องกันข้อมูลสูญหาย
+          </p>
+          <button type="button" id="btn-do-backup" class="btn btn-sm btn-primary">
+            📥 ดาวน์โหลดไฟล์สำรองข้อมูล (.json)
+          </button>
+        </div>
+
+        <div style="background: var(--primary-light); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--primary-border); margin-bottom: 1.25rem;">
+          <h4 style="font-size: 1rem; color: var(--primary-dark); margin-bottom: 0.35rem;">📂 กู้คืนข้อมูล (Import JSON)</h4>
+          <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+            เลือกไฟล์สำรอง (.json) ที่เคยส่งออกไว้ เพื่อนำข้อมูลทั้งหมดกลับคืนสู่ระบบ
+          </p>
+          <input type="file" id="backup-file-input" accept=".json" class="form-control" style="margin-bottom: 0.5rem;">
+          <button type="button" id="btn-do-restore" class="btn btn-sm btn-outline">
+            🚀 เริ่มต้นกู้คืนข้อมูล
+          </button>
+        </div>
+
+        <div style="padding: 0.75rem; border: 1px dashed var(--status-overdue); border-radius: var(--radius-md);">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;">
+            <div>
+              <strong style="color: var(--status-overdue); font-size: 0.9rem;">⚠️ รีเซ็ตข้อมูลเริ่มต้น</strong>
+              <p class="text-muted" style="font-size: 0.8rem; margin: 0;">คืนค่าอุปกรณ์และการตั้งค่าเป็นค่าเริ่มต้น</p>
+            </div>
+            <button type="button" id="btn-reset-demo" class="btn btn-sm btn-outline btn-danger">
+              🔄 รีเซ็ตทั้งหมด
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close-modal="backup">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       Mobile Bottom Navigation
+       ======================================================================== -->
+  <nav class="mobile-nav-bar">
+    <div class="mobile-nav-items">
+      <a href="#borrow" class="mobile-nav-item active">
+        <span class="nav-icon">🏀</span>
+        <span>ยืมอุปกรณ์</span>
+      </a>
+      <a href="#return" class="mobile-nav-item">
+        <span class="nav-icon">🔄</span>
+        <span>คืนอุปกรณ์</span>
+      </a>
+      <a href="#dashboard" class="mobile-nav-item">
+        <span class="nav-icon">👨‍🏫</span>
+        <span>ครู/แดชบอร์ด</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- ========================================================================
+       Toast Notifications Container
+       ======================================================================== -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ========================================================================
+       Site Footer
+       ======================================================================== -->
+  <footer class="site-footer">
+    <p id="footer-school-brand">ระบบยืม-คืนอุปกรณ์กีฬา • โรงเรียนของเรา</p>
+    <p id="footer-school-text" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+      พัฒนาเพื่อการศึกษาและส่งเสริมสุขภาพนักเรียน ⚽
+    </p>
+  </footer>
+
+</body>
+</html>
